@@ -1,12 +1,36 @@
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import styles from "@/styles/Course.module.css";
+import { useAuth } from "../../../context/AuthContext";
 import supabase from "../../../lib/supabaseClient";
+import styles from "@/styles/Course.module.css";
+import { useEffect, useState } from "react";
 
 const CourseDetail = ({ course, lessons }) => {
+  const { user } = useAuth();
   const router = useRouter();
-  const completedLessons = lessons.filter((lesson) => lesson.is_completed);
+  const [completedLessons, setCompletedLessons] = useState([]);
+
+  useEffect(() => {
+    if (user) {
+      // Récupérer les leçons terminées pour cet utilisateur et ce cours
+      const fetchCompletedLessons = async () => {
+        const { data, error } = await supabase
+          .from("progression")
+          .select("lesson_id")
+          .eq("user_id", user.id)
+          .eq("course_id", course.id)
+          .eq("is_completed", true);
+
+        if (data) {
+          setCompletedLessons(data.map((item) => item.lesson_id));
+        }
+      };
+
+      fetchCompletedLessons();
+    }
+  }, [user, course.id]);
+
   const progress = (completedLessons.length / lessons.length) * 100;
 
   if (!course || !lessons) {
@@ -43,7 +67,7 @@ const CourseDetail = ({ course, lessons }) => {
                 >
                   {lesson.title}
                 </Link>
-                {lesson.is_completed && (
+                {completedLessons.includes(lesson.id) && (
                   <span className={styles.completedBadge}>Terminé</span>
                 )}
               </li>
